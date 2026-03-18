@@ -1,0 +1,25 @@
+{
+	"build-commands": [
+		"./config --prefix=/app --openssldir=/app --libdir=lib shared",
+		"make -j ${FLATPAK_BUILDER_N_JOBS} build_sw",
+		"make -j ${FLATPAK_BUILDER_N_JOBS} install_sw"
+	],
+	"buildsystem": "simple",
+	"cleanup": [],
+	"name": "openssl",
+	"sources": [
+		{
+			"sha256": "b1bfedcd5b289ff22aee87c9d600f515767ebf45f77168cb6d64f231f518a82e",
+			"type": "archive",
+			"url":
+			    "https://github.com/openssl/openssl/releases/download/openssl-3.6.1/openssl-3.6.1.tar.gz",
+			"x-checker-data": {
+				"project-id": 13287,
+				"stable-only": true,
+				"type": "anitya",
+				"url-template":
+				    "https://github.com/openssl/openssl/releases/download/openssl-${version}/openssl-${version}.tar.gz"
+			}
+		}
+	]
+}

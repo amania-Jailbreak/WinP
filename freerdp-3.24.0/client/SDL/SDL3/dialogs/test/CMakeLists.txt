@@ -1,0 +1,5 @@
+set(NAMES "TestSDLDialogInput;TestSDLDialogSelectList")
+foreach(NAME ${NAMES})
+  add_executable(${NAME} ${NAME}.cpp)
+  target_link_libraries(${NAME} PRIVATE sdl3-dialogs freerdp-client freerdp)
+endforeach()
