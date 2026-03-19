@@ -68,32 +68,61 @@ def enumerate_windows() -> Dict[int, WindowSnapshot]:
     z = len(handles)
     for hwnd in handles:
         z -= 1
-        try:
-            if not _is_manageable(hwnd):
-                continue
-            try:
-                x, y, w, h = _rect(hwnd)
-            except Exception:  # noqa: BLE001
-                x, y, w, h = 0, 0, 1, 1
-            _, pid = win32process.GetWindowThreadProcessId(hwnd)
-            result[hwnd] = WindowSnapshot(
-                window_id=hwnd,
-                title=win32gui.GetWindowText(hwnd) or "",
-                pid=pid,
-                x=x,
-                y=y,
-                width=w,
-                height=h,
-                visible=bool(win32gui.IsWindowVisible(hwnd)),
-                minimized=bool(win32gui.IsIconic(hwnd)),
-                maximized=bool(win32gui.IsZoomed(hwnd)),
-                z_order=z,
-                monitor_id=_monitor_index(hwnd),
-                timestamp=now,
-            )
-        except Exception:  # noqa: BLE001
-            # A window can disappear mid-enumeration. Skip and continue streaming.
+        if not _is_manageable(hwnd):
             continue
+
+        title = ""
+        pid = 0
+        x, y, w, h = 0, 0, 1, 1
+        visible = False
+        minimized = False
+        maximized = False
+        monitor_id = 0
+
+        try:
+            title = win32gui.GetWindowText(hwnd) or ""
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            x, y, w, h = _rect(hwnd)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            visible = bool(win32gui.IsWindowVisible(hwnd))
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            minimized = bool(win32gui.IsIconic(hwnd))
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            maximized = bool(win32gui.IsZoomed(hwnd))
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            monitor_id = _monitor_index(hwnd)
+        except Exception:  # noqa: BLE001
+            pass
+
+        result[hwnd] = WindowSnapshot(
+            window_id=hwnd,
+            title=title,
+            pid=pid,
+            x=x,
+            y=y,
+            width=w,
+            height=h,
+            visible=visible,
+            minimized=minimized,
+            maximized=maximized,
+            z_order=z,
+            monitor_id=monitor_id,
+            timestamp=now,
+        )
     return result
 
 
