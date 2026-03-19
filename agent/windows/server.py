@@ -1,14 +1,21 @@
 from __future__ import annotations
 
 import argparse
+import pathlib
+import sys
 import time
 from concurrent import futures
 from typing import Optional
 
 import grpc
 
-from .proto_loader import load_proto
-from .window_service import close, diff_events, enumerate_windows, focus, move_resize
+if __package__ is None or __package__ == "":
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+    from windows.proto_loader import load_proto  # type: ignore
+    from windows.window_service import close, diff_events, enumerate_windows, focus, move_resize  # type: ignore
+else:
+    from .proto_loader import load_proto
+    from .window_service import close, diff_events, enumerate_windows, focus, move_resize
 
 pb2, pb2_grpc = load_proto()
 
@@ -86,15 +93,24 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=50051)
     parser.add_argument("--token", required=True)
-    parser.add_argument("--cert", required=True)
-    parser.add_argument("--key", required=True)
+    parser.add_argument("--cert")
+    parser.add_argument("--key")
+    parser.add_argument("--insecure", action="store_true", help="Allow non-TLS gRPC (development only)")
     args = parser.parse_args(argv)
+    if bool(args.cert) ^ bool(args.key):
+        raise SystemExit("--cert and --key must be provided together")
 
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
     pb2_grpc.add_WindowControlServiceServicer_to_server(WindowControlService(args.token), server)
-    server.add_secure_port(f"{args.host}:{args.port}", _server_credentials(args.cert, args.key))
+    bind = f"{args.host}:{args.port}"
+    use_tls = bool(args.cert and args.key and not args.insecure)
+    if use_tls:
+        server.add_secure_port(bind, _server_credentials(args.cert, args.key))
+    else:
+        server.add_insecure_port(bind)
     server.start()
-    print(f"window-control-agent listening {args.host}:{args.port}", flush=True)
+    mode = "tls" if use_tls else "insecure"
+    print(f"window-control-agent listening {bind} ({mode})", flush=True)
     try:
         server.wait_for_termination()
     except KeyboardInterrupt:
