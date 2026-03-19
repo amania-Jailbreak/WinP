@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import logging
+import os
 import pathlib
 import sys
 import time
@@ -21,6 +23,44 @@ else:
 
 pb2, pb2_grpc = load_proto()
 logger = logging.getLogger("winp.agent")
+
+
+def _runtime_context() -> dict[str, object]:
+    ctx: dict[str, object] = {"pid": os.getpid()}
+    try:
+        k32 = ctypes.windll.kernel32
+        sid = ctypes.c_uint32()
+        if k32.ProcessIdToSessionId(os.getpid(), ctypes.byref(sid)):
+            ctx["session_id"] = int(sid.value)
+        ctx["active_console_session_id"] = int(k32.WTSGetActiveConsoleSessionId())
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        u32 = ctypes.windll.user32
+        hdesk = u32.GetThreadDesktop(k32.GetCurrentThreadId())
+        if hdesk:
+            name = ctypes.create_unicode_buffer(256)
+            needed = ctypes.c_uint32()
+            UOI_NAME = 2
+            if u32.GetUserObjectInformationW(hdesk, UOI_NAME, name, ctypes.sizeof(name), ctypes.byref(needed)):
+                ctx["desktop"] = name.value
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        u32 = ctypes.windll.user32
+        hws = u32.GetProcessWindowStation()
+        if hws:
+            name = ctypes.create_unicode_buffer(256)
+            needed = ctypes.c_uint32()
+            UOI_NAME = 2
+            if u32.GetUserObjectInformationW(hws, UOI_NAME, name, ctypes.sizeof(name), ctypes.byref(needed)):
+                ctx["window_station"] = name.value
+    except Exception:  # noqa: BLE001
+        pass
+
+    return ctx
 
 
 def _require_auth(context: grpc.ServicerContext, expected_token: str) -> bool:
@@ -152,7 +192,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         server.add_insecure_port(bind)
     server.start()
     mode = "tls" if use_tls else "insecure"
+    ctx = _runtime_context()
     logger.info("window-control-agent listening %s (%s)", bind, mode)
+    logger.info(
+        "runtime-context pid=%s session_id=%s active_console_session_id=%s window_station=%s desktop=%s",
+        ctx.get("pid", "?"),
+        ctx.get("session_id", "?"),
+        ctx.get("active_console_session_id", "?"),
+        ctx.get("window_station", "?"),
+        ctx.get("desktop", "?"),
+    )
     try:
         server.wait_for_termination()
     except KeyboardInterrupt:
