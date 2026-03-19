@@ -26,6 +26,8 @@ export WINP_AGENT_PYTHON="/path/to/python"
 python -m windows.server --host 0.0.0.0 --port 50051 --token YOUR_TOKEN --cert server.crt --key server.key
 # or
 python windows\server.py --host 0.0.0.0 --port 50051 --token YOUR_TOKEN --cert server.crt --key server.key
+# optional verbose logs
+python -m windows.server --host 0.0.0.0 --port 50051 --token YOUR_TOKEN --cert server.crt --key server.key --log-level DEBUG
 ```
 
 ### No cert/key (insecure, development)
@@ -33,6 +35,8 @@ python windows\server.py --host 0.0.0.0 --port 50051 --token YOUR_TOKEN --cert s
 python -m windows.server --host 0.0.0.0 --port 50051 --token YOUR_TOKEN --insecure
 # or
 python windows\server.py --host 0.0.0.0 --port 50051 --token YOUR_TOKEN --insecure
+# optional verbose logs
+python -m windows.server --host 0.0.0.0 --port 50051 --token YOUR_TOKEN --insecure --log-level DEBUG
 ```
 
 ## Swift bridge command behavior

@@ -716,15 +716,18 @@ final class RDPClientService: ObservableObject {
         switch event.event {
         case "upsert":
             guard let window = event.window else { return }
+            appendLog("Agent stream upsert: id=\(String(format: "0x%08X", window.windowId)) title=\(window.title)\n")
             var map = Dictionary(uniqueKeysWithValues: agentWindows.map { ($0.windowId, $0) })
             map[window.windowId] = window
             agentWindows = map.values.sorted { $0.zOrder > $1.zOrder }
             cropManager.replaceWindows(agentWindows)
         case "remove":
             guard let id = event.windowId else { return }
+            appendLog("Agent stream remove: id=\(String(format: "0x%08X", id))\n")
             agentWindows.removeAll { $0.windowId == id }
             cropManager.replaceWindows(agentWindows)
         default:
+            appendLog("Agent stream event: \(event.event)\n")
             break
         }
     }

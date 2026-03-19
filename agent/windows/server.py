@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import pathlib
 import sys
 import time
@@ -19,6 +20,7 @@ else:
     from .window_service import close, diff_events, enumerate_windows, focus, move_resize
 
 pb2, pb2_grpc = load_proto()
+logger = logging.getLogger("winp.agent")
 
 
 def _require_auth(context: grpc.ServicerContext, expected_token: str) -> bool:
@@ -26,6 +28,7 @@ def _require_auth(context: grpc.ServicerContext, expected_token: str) -> bool:
     value = md.get("authorization", "")
     expected = f"Bearer {expected_token}"
     if value != expected:
+        logger.warning("auth failed peer=%s", context.peer())
         context.abort(grpc.StatusCode.UNAUTHENTICATED, "invalid token")
     return True
 
@@ -51,11 +54,13 @@ class WindowControlService(pb2_grpc.WindowControlServiceServicer):
 
     def Health(self, request, context):  # noqa: N802
         _require_auth(context, self._token)
+        logger.info("Health peer=%s", context.peer())
         return pb2.HealthResponse(ok=True, message="ok", timestamp=int(time.time() * 1000))
 
     def StreamWindows(self, request, context):  # noqa: N802
         _require_auth(context, self._token)
         interval_ms = max(50, int(request.interval_ms or 250))
+        logger.info("StreamWindows start peer=%s interval_ms=%d", context.peer(), interval_ms)
         prev = {}
         while context.is_active():
             try:
@@ -68,21 +73,36 @@ class WindowControlService(pb2_grpc.WindowControlServiceServicer):
                 prev = cur
             except Exception:  # noqa: BLE001
                 traceback.print_exc()
+                logger.exception("StreamWindows loop error")
             time.sleep(interval_ms / 1000.0)
+        logger.info("StreamWindows end peer=%s", context.peer())
 
     def MoveResize(self, request, context):  # noqa: N802
         _require_auth(context, self._token)
         ok, msg = move_resize(request.window_id, request.x, request.y, request.width, request.height)
+        logger.info(
+            "MoveResize peer=%s id=0x%08X x=%d y=%d w=%d h=%d ok=%s msg=%s",
+            context.peer(),
+            int(request.window_id),
+            int(request.x),
+            int(request.y),
+            int(request.width),
+            int(request.height),
+            ok,
+            msg,
+        )
         return pb2.ControlResponse(ok=ok, message=msg)
 
     def Focus(self, request, context):  # noqa: N802
         _require_auth(context, self._token)
         ok, msg = focus(request.window_id)
+        logger.info("Focus peer=%s id=0x%08X ok=%s msg=%s", context.peer(), int(request.window_id), ok, msg)
         return pb2.ControlResponse(ok=ok, message=msg)
 
     def Close(self, request, context):  # noqa: N802
         _require_auth(context, self._token)
         ok, msg = close(request.window_id)
+        logger.info("Close peer=%s id=0x%08X ok=%s msg=%s", context.peer(), int(request.window_id), ok, msg)
         return pb2.ControlResponse(ok=ok, message=msg)
 
 
@@ -100,7 +120,12 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--cert")
     parser.add_argument("--key")
     parser.add_argument("--insecure", action="store_true", help="Allow non-TLS gRPC (development only)")
+    parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     args = parser.parse_args(argv)
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     if bool(args.cert) ^ bool(args.key):
         raise SystemExit("--cert and --key must be provided together")
 
@@ -114,7 +139,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         server.add_insecure_port(bind)
     server.start()
     mode = "tls" if use_tls else "insecure"
-    print(f"window-control-agent listening {bind} ({mode})", flush=True)
+    logger.info("window-control-agent listening %s (%s)", bind, mode)
     try:
         server.wait_for_termination()
     except KeyboardInterrupt:
