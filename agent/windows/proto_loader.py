@@ -5,8 +5,6 @@ import pathlib
 import sys
 from typing import Tuple
 
-from grpc_tools import protoc
-
 
 def load_proto() -> Tuple[object, object]:
     base = pathlib.Path(__file__).resolve().parent
@@ -17,6 +15,13 @@ def load_proto() -> Tuple[object, object]:
     pb2 = out / "window_control_pb2.py"
     pb2_grpc = out / "window_control_pb2_grpc.py"
     if not pb2.exists() or not pb2_grpc.exists():
+        try:
+            from grpc_tools import protoc
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "grpc_tools is required to generate gRPC stubs. "
+                "Install with: pip install grpcio-tools"
+            ) from exc
         rc = protoc.main(
             [
                 "grpc_tools.protoc",

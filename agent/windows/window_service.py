@@ -65,25 +65,29 @@ def enumerate_windows() -> Dict[int, WindowSnapshot]:
     z = len(handles)
     for hwnd in handles:
         z -= 1
-        if not _is_manageable(hwnd):
+        try:
+            if not _is_manageable(hwnd):
+                continue
+            x, y, w, h = _rect(hwnd)
+            _, pid = win32process.GetWindowThreadProcessId(hwnd)
+            result[hwnd] = WindowSnapshot(
+                window_id=hwnd,
+                title=win32gui.GetWindowText(hwnd),
+                pid=pid,
+                x=x,
+                y=y,
+                width=w,
+                height=h,
+                visible=bool(win32gui.IsWindowVisible(hwnd)),
+                minimized=bool(win32gui.IsIconic(hwnd)),
+                maximized=bool(win32gui.IsZoomed(hwnd)),
+                z_order=z,
+                monitor_id=_monitor_index(hwnd),
+                timestamp=now,
+            )
+        except Exception:  # noqa: BLE001
+            # A window can disappear mid-enumeration. Skip and continue streaming.
             continue
-        x, y, w, h = _rect(hwnd)
-        _, pid = win32process.GetWindowThreadProcessId(hwnd)
-        result[hwnd] = WindowSnapshot(
-            window_id=hwnd,
-            title=win32gui.GetWindowText(hwnd),
-            pid=pid,
-            x=x,
-            y=y,
-            width=w,
-            height=h,
-            visible=bool(win32gui.IsWindowVisible(hwnd)),
-            minimized=bool(win32gui.IsIconic(hwnd)),
-            maximized=bool(win32gui.IsZoomed(hwnd)),
-            z_order=z,
-            monitor_id=_monitor_index(hwnd),
-            timestamp=now,
-        )
     return result
 
 

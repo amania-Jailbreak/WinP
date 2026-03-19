@@ -7,6 +7,19 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+## macOS side (Swift client bridge) requirements
+`client_bridge.py` is executed on macOS by WinP, so the Python used there also needs gRPC packages.
+
+```bash
+python3 -m pip install grpcio protobuf grpcio-tools
+```
+
+If WinP should use a specific Python (e.g. venv), set:
+
+```bash
+export WINP_AGENT_PYTHON="/path/to/python"
+```
+
 ## Run server
 ### TLS (recommended)
 ```powershell

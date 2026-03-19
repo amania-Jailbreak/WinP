@@ -41,190 +41,193 @@ struct ContentView: View {
     @State private var inlineZoomScale = 1.0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("WinP RDP Client")
-                .font(.title2)
-                .fontWeight(.semibold)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("WinP RDP Client")
+                    .font(.title2)
+                    .fontWeight(.semibold)
 
-            GroupBox("Connection") {
-                VStack(alignment: .leading, spacing: 12) {
-                    TextField("Host (example: 192.168.1.10)", text: $host)
-                        .textFieldStyle(.roundedBorder)
-
-                    TextField("Username", text: $username)
-                        .textFieldStyle(.roundedBorder)
-
-                    SecureField("Password", text: $password)
-                        .textFieldStyle(.roundedBorder)
-
-                    TextField("Domain (optional)", text: $domain)
-                        .textFieldStyle(.roundedBorder)
-
-                    Toggle("Auto reconnect", isOn: $autoReconnect)
-
-                    Toggle("Full screen (解像度指定を無視)", isOn: $fullScreen)
-
-                    HStack {
-                        TextField("Width", text: $width)
+                GroupBox("Connection") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        TextField("Host (example: 192.168.1.10)", text: $host)
                             .textFieldStyle(.roundedBorder)
-                        Text("x")
-                        TextField("Height", text: $height)
+
+                        TextField("Username", text: $username)
+                            .textFieldStyle(.roundedBorder)
+
+                        SecureField("Password", text: $password)
+                            .textFieldStyle(.roundedBorder)
+
+                        TextField("Domain (optional)", text: $domain)
+                            .textFieldStyle(.roundedBorder)
+
+                        Toggle("Auto reconnect", isOn: $autoReconnect)
+
+                        Toggle("Full screen (解像度指定を無視)", isOn: $fullScreen)
+
+                        HStack {
+                            TextField("Width", text: $width)
+                                .textFieldStyle(.roundedBorder)
+                            Text("x")
+                            TextField("Height", text: $height)
+                                .textFieldStyle(.roundedBorder)
+                        }
+                        .disabled(fullScreen)
+
+                        Text(fullScreen ? "フルスクリーン時は接続先ディスプレイ解像度を使用" : "この解像度で接続します")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Divider()
+                        Text("Agent")
+                            .font(.headline)
+                        TextField("Agent Host", text: $agentHost)
+                            .textFieldStyle(.roundedBorder)
+                        TextField("Agent Port", text: $agentPort)
+                            .textFieldStyle(.roundedBorder)
+                        SecureField("Agent Token", text: $agentToken)
+                            .textFieldStyle(.roundedBorder)
+                        Toggle("Agent TLS", isOn: $agentTLS)
+                        TextField("Agent CA Cert Path (optional)", text: $agentCACertPath)
                             .textFieldStyle(.roundedBorder)
                     }
-                    .disabled(fullScreen)
-
-                    Text(fullScreen ? "フルスクリーン時は接続先ディスプレイ解像度を使用" : "この解像度で接続します")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    Divider()
-                    Text("Agent")
-                        .font(.headline)
-                    TextField("Agent Host", text: $agentHost)
-                        .textFieldStyle(.roundedBorder)
-                    TextField("Agent Port", text: $agentPort)
-                        .textFieldStyle(.roundedBorder)
-                    SecureField("Agent Token", text: $agentToken)
-                        .textFieldStyle(.roundedBorder)
-                    Toggle("Agent TLS", isOn: $agentTLS)
-                    TextField("Agent CA Cert Path (optional)", text: $agentCACertPath)
-                        .textFieldStyle(.roundedBorder)
-                }
-            }
-
-            HStack {
-                Button("Connect") {
-                    client.connect(
-                        host: host,
-                        username: username,
-                        password: password,
-                        domain: domain.isEmpty ? nil : domain,
-                        autoReconnect: autoReconnect,
-                        fullScreen: fullScreen,
-                        width: Int(width),
-                        height: Int(height),
-                        agentHost: agentHost,
-                        agentPort: Int(agentPort) ?? 0,
-                        agentToken: agentToken,
-                        agentTLS: agentTLS,
-                        agentCACertPath: agentCACertPath.isEmpty ? nil : agentCACertPath
-                    )
-                }
-                .disabled(client.isRunning)
-
-                Button("Disconnect") {
-                    client.disconnect()
-                }
-                .disabled(!client.isRunning)
-
-                Button("Open Remote Window") {
-                    openWindow(id: "remote-screen")
                 }
 
-                Button("Apply Resolution") {
-                    client.applyResolution(width: Int(width), height: Int(height))
+                HStack {
+                    Button("Connect") {
+                        client.connect(
+                            host: host,
+                            username: username,
+                            password: password,
+                            domain: domain.isEmpty ? nil : domain,
+                            autoReconnect: autoReconnect,
+                            fullScreen: fullScreen,
+                            width: Int(width),
+                            height: Int(height),
+                            agentHost: agentHost,
+                            agentPort: Int(agentPort) ?? 0,
+                            agentToken: agentToken,
+                            agentTLS: agentTLS,
+                            agentCACertPath: agentCACertPath.isEmpty ? nil : agentCACertPath
+                        )
+                    }
+                    .disabled(client.isRunning)
+
+                    Button("Disconnect") {
+                        client.disconnect()
+                    }
+                    .disabled(!client.isRunning)
+
+                    Button("Open Remote Window") {
+                        openWindow(id: "remote-screen")
+                    }
+
+                    Button("Apply Resolution") {
+                        client.applyResolution(width: Int(width), height: Int(height))
+                    }
+                    .disabled(!client.isRunning || fullScreen)
                 }
-                .disabled(!client.isRunning || fullScreen)
-            }
 
-            Text(client.statusMessage)
-                .font(.subheadline)
-                .foregroundStyle(client.isError ? .red : .secondary)
+                Text(client.statusMessage)
+                    .font(.subheadline)
+                    .foregroundStyle(client.isError ? .red : .secondary)
 
-            GroupBox("Remote Screen") {
-                VStack(alignment: .leading, spacing: 8) {
-                    ZoomControls(zoomScale: $inlineZoomScale)
-                        .onChange(of: inlineZoomScale) { _, newScale in
-                            client.setResolutionScale(newScale)
-                        }
+                GroupBox("Remote Screen") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ZoomControls(zoomScale: $inlineZoomScale)
+                            .onChange(of: inlineZoomScale) { _, newScale in
+                                client.setResolutionScale(newScale)
+                            }
 
-                    ZoomableRemoteCanvas(
-                        client: client,
-                        frameImage: client.frameImage,
-                        emptyText: "接続後に画面が表示されます"
-                    )
-                    .frame(minHeight: 300)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        ZoomableRemoteCanvas(
+                            client: client,
+                            frameImage: client.frameImage,
+                            emptyText: "接続後に画面が表示されます"
+                        )
+                        .frame(minHeight: 300)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
                 }
-            }
 
-            GroupBox("Agent Windows") {
-                VStack(alignment: .leading, spacing: 8) {
-                    if client.agentWindows.isEmpty {
-                        Text("Agent stream待機中または対象ウィンドウなし")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 6) {
-                                ForEach(client.agentWindows) { win in
-                                    Button {
-                                        selectedWindowId = win.windowId
-                                        controlX = String(win.x)
-                                        controlY = String(win.y)
-                                        controlW = String(win.width)
-                                        controlH = String(win.height)
-                                    } label: {
-                                        HStack {
-                                            Text(String(format: "0x%08X", win.windowId))
-                                                .font(.system(size: 12, design: .monospaced))
-                                            Text(win.title.isEmpty ? "(untitled)" : win.title)
-                                                .lineLimit(1)
-                                            Spacer()
-                                            Text("\(win.x),\(win.y) \(win.width)x\(win.height)")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
+                GroupBox("Agent Windows") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if client.agentWindows.isEmpty {
+                            Text("Agent stream待機中または対象ウィンドウなし")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ScrollView {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    ForEach(client.agentWindows) { win in
+                                        Button {
+                                            selectedWindowId = win.windowId
+                                            controlX = String(win.x)
+                                            controlY = String(win.y)
+                                            controlW = String(win.width)
+                                            controlH = String(win.height)
+                                        } label: {
+                                            HStack {
+                                                Text(String(format: "0x%08X", win.windowId))
+                                                    .font(.system(size: 12, design: .monospaced))
+                                                Text(win.title.isEmpty ? "(untitled)" : win.title)
+                                                    .lineLimit(1)
+                                                Spacer()
+                                                Text("\(win.x),\(win.y) \(win.width)x\(win.height)")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                            }
                                         }
+                                        .buttonStyle(.plain)
                                     }
-                                    .buttonStyle(.plain)
                                 }
                             }
+                            .frame(maxHeight: 140)
                         }
-                        .frame(maxHeight: 140)
-                    }
 
-                    if let selectedWindowId {
-                        HStack {
-                            Button("Focus") { client.agentFocus(windowId: selectedWindowId) }
-                            Button("Close") { client.agentClose(windowId: selectedWindowId) }
-                            Spacer()
-                        }
-                        HStack {
-                            TextField("X", text: $controlX).textFieldStyle(.roundedBorder)
-                            TextField("Y", text: $controlY).textFieldStyle(.roundedBorder)
-                            TextField("W", text: $controlW).textFieldStyle(.roundedBorder)
-                            TextField("H", text: $controlH).textFieldStyle(.roundedBorder)
-                            Button("Move/Resize") {
-                                client.agentMoveResize(
-                                    windowId: selectedWindowId,
-                                    x: Int(controlX) ?? 0,
-                                    y: Int(controlY) ?? 0,
-                                    width: max(1, Int(controlW) ?? 1),
-                                    height: max(1, Int(controlH) ?? 1)
-                                )
+                        if let selectedWindowId {
+                            HStack {
+                                Button("Focus") { client.agentFocus(windowId: selectedWindowId) }
+                                Button("Close") { client.agentClose(windowId: selectedWindowId) }
+                                Spacer()
+                            }
+                            HStack {
+                                TextField("X", text: $controlX).textFieldStyle(.roundedBorder)
+                                TextField("Y", text: $controlY).textFieldStyle(.roundedBorder)
+                                TextField("W", text: $controlW).textFieldStyle(.roundedBorder)
+                                TextField("H", text: $controlH).textFieldStyle(.roundedBorder)
+                                Button("Move/Resize") {
+                                    client.agentMoveResize(
+                                        windowId: selectedWindowId,
+                                        x: Int(controlX) ?? 0,
+                                        y: Int(controlY) ?? 0,
+                                        width: max(1, Int(controlW) ?? 1),
+                                        height: max(1, Int(controlH) ?? 1)
+                                    )
+                                }
+                            }
+                            if let image = client.croppedImage(for: selectedWindowId) {
+                                Image(nsImage: image)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxHeight: 180)
+                                    .background(Color.black.opacity(0.8))
                             }
                         }
-                        if let image = client.croppedImage(for: selectedWindowId) {
-                            Image(nsImage: image)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxHeight: 180)
-                                .background(Color.black.opacity(0.8))
-                        }
                     }
                 }
-            }
 
-            GroupBox("Log") {
-                ScrollView {
-                    Text(client.outputLog)
-                        .font(.system(size: 12, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                GroupBox("Log") {
+                    ScrollView {
+                        Text(client.outputLog)
+                            .font(.system(size: 12, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(minHeight: 180)
                 }
-                .frame(minHeight: 180)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(20)
         }
-        .padding(20)
         .frame(minWidth: 520, minHeight: 620)
     }
 }

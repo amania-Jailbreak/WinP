@@ -6,6 +6,7 @@ import sys
 import time
 from concurrent import futures
 from typing import Optional
+import traceback
 
 import grpc
 
@@ -57,13 +58,16 @@ class WindowControlService(pb2_grpc.WindowControlServiceServicer):
         interval_ms = max(50, int(request.interval_ms or 250))
         prev = {}
         while context.is_active():
-            cur = enumerate_windows()
-            for kind, snapshot, removed_id in diff_events(prev, cur):
-                if kind == "upsert" and snapshot is not None:
-                    yield pb2.WindowEvent(type=pb2.WindowEvent.UPSERT, window=_window_info(snapshot))
-                elif kind == "remove" and removed_id is not None:
-                    yield pb2.WindowEvent(type=pb2.WindowEvent.REMOVE, window_id=int(removed_id))
-            prev = cur
+            try:
+                cur = enumerate_windows()
+                for kind, snapshot, removed_id in diff_events(prev, cur):
+                    if kind == "upsert" and snapshot is not None:
+                        yield pb2.WindowEvent(type=pb2.WindowEvent.UPSERT, window=_window_info(snapshot))
+                    elif kind == "remove" and removed_id is not None:
+                        yield pb2.WindowEvent(type=pb2.WindowEvent.REMOVE, window_id=int(removed_id))
+                prev = cur
+            except Exception:  # noqa: BLE001
+                traceback.print_exc()
             time.sleep(interval_ms / 1000.0)
 
     def MoveResize(self, request, context):  # noqa: N802

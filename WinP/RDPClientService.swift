@@ -128,13 +128,15 @@ private final class AgentBridgeStream {
         stop()
 
         let script = AgentBridgeCommand.scriptPath()
+        let python = AgentBridgeCommand.pythonCommand()
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        var args = ["python3", script, "stream", "--host", profile.host, "--port", String(profile.port), "--token", profile.token]
+        var args = [python, script, "--host", profile.host, "--port", String(profile.port), "--token", profile.token]
         if profile.tls { args.append("--tls") }
         if let ca = profile.caCertPath, !ca.isEmpty {
             args.append(contentsOf: ["--ca-cert", ca])
         }
+        args.append("stream")
         p.arguments = args
 
         let stdout = Pipe()
@@ -185,6 +187,13 @@ private final class AgentBridgeStream {
 }
 
 private enum AgentBridgeCommand {
+    static func pythonCommand() -> String {
+        if let explicit = ProcessInfo.processInfo.environment["WINP_AGENT_PYTHON"], !explicit.isEmpty {
+            return explicit
+        }
+        return "python3"
+    }
+
     static func scriptPath() -> String {
         if let explicit = ProcessInfo.processInfo.environment["WINP_AGENT_BRIDGE"], !explicit.isEmpty {
             return explicit
@@ -196,7 +205,7 @@ private enum AgentBridgeCommand {
     static func run(_ args: [String]) -> (code: Int32, stdout: String) {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        p.arguments = ["python3", scriptPath()] + args
+        p.arguments = [pythonCommand(), scriptPath()] + args
         let out = Pipe()
         p.standardOutput = out
         p.standardError = out
