@@ -38,10 +38,32 @@ def _monitor_index(hwnd: int) -> int:
 
 
 def _is_manageable(hwnd: int) -> bool:
-    if not win32gui.IsWindow(hwnd):
+    try:
+        if not win32gui.IsWindow(hwnd):
+            return False
+
+        # Ignore owned/aux windows (menus, popups, helpers).
+        if win32gui.GetWindow(hwnd, win32con.GW_OWNER):
+            return False
+
+        style = win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE)
+        exstyle = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
+        if (style & win32con.WS_DISABLED) != 0:
+            return False
+        if (exstyle & win32con.WS_EX_TOOLWINDOW) != 0:
+            return False
+
+        title = win32gui.GetWindowText(hwnd) or ""
+        if not title.strip():
+            return False
+
+        _, _, w, h = _rect(hwnd)
+        if w < 80 or h < 40:
+            return False
+
+        return True
+    except Exception:  # noqa: BLE001
         return False
-    # Debug-first: do not over-filter here.
-    return True
 
 
 def enumerate_windows() -> Dict[int, WindowSnapshot]:
