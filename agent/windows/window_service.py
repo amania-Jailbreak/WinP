@@ -7,6 +7,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 import win32con
 import win32gui
 import win32process
+import win32service
 
 
 @dataclasses.dataclass
@@ -39,17 +40,7 @@ def _monitor_index(hwnd: int) -> int:
 def _is_manageable(hwnd: int) -> bool:
     if not win32gui.IsWindow(hwnd):
         return False
-    # v1: keep filtering permissive so stream always yields windows.
-    # Owner/toolwindow/title constraints can hide too much on some hosts.
-    style = win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE)
-    if (style & win32con.WS_DISABLED) != 0:
-        return False
-    try:
-        _, _, w, h = _rect(hwnd)
-    except Exception:  # noqa: BLE001
-        return False
-    if w <= 1 or h <= 1:
-        return False
+    # Debug-first: do not over-filter here.
     return True
 
 
@@ -61,6 +52,17 @@ def enumerate_windows() -> Dict[int, WindowSnapshot]:
         return True
 
     win32gui.EnumWindows(_cb, 0)
+    if not handles:
+        # Fallback: if agent is not on the default interactive desktop context,
+        # try input desktop enumeration explicitly.
+        try:
+            hdesk = win32service.OpenInputDesktop(0, False, win32con.MAXIMUM_ALLOWED)
+            try:
+                win32gui.EnumDesktopWindows(hdesk, _cb, 0)
+            finally:
+                win32service.CloseDesktop(hdesk)
+        except Exception:  # noqa: BLE001
+            pass
     now = int(time.time() * 1000)
     result: Dict[int, WindowSnapshot] = {}
     z = len(handles)
@@ -69,11 +71,14 @@ def enumerate_windows() -> Dict[int, WindowSnapshot]:
         try:
             if not _is_manageable(hwnd):
                 continue
-            x, y, w, h = _rect(hwnd)
+            try:
+                x, y, w, h = _rect(hwnd)
+            except Exception:  # noqa: BLE001
+                x, y, w, h = 0, 0, 1, 1
             _, pid = win32process.GetWindowThreadProcessId(hwnd)
             result[hwnd] = WindowSnapshot(
                 window_id=hwnd,
-                title=win32gui.GetWindowText(hwnd),
+                title=win32gui.GetWindowText(hwnd) or "",
                 pid=pid,
                 x=x,
                 y=y,
