@@ -39,15 +39,16 @@ def _monitor_index(hwnd: int) -> int:
 def _is_manageable(hwnd: int) -> bool:
     if not win32gui.IsWindow(hwnd):
         return False
-    if win32gui.GetWindow(hwnd, win32con.GW_OWNER):
-        return False
+    # v1: keep filtering permissive so stream always yields windows.
+    # Owner/toolwindow/title constraints can hide too much on some hosts.
     style = win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE)
-    exstyle = win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE)
     if (style & win32con.WS_DISABLED) != 0:
         return False
-    if (exstyle & win32con.WS_EX_TOOLWINDOW) != 0:
+    try:
+        _, _, w, h = _rect(hwnd)
+    except Exception:  # noqa: BLE001
         return False
-    if not win32gui.GetWindowText(hwnd):
+    if w <= 1 or h <= 1:
         return False
     return True
 

@@ -62,15 +62,28 @@ class WindowControlService(pb2_grpc.WindowControlServiceServicer):
         interval_ms = max(50, int(request.interval_ms or 250))
         logger.info("StreamWindows start peer=%s interval_ms=%d", context.peer(), interval_ms)
         prev = {}
+        tick = 0
         while context.is_active():
             try:
+                tick += 1
                 cur = enumerate_windows()
+                emitted = 0
                 for kind, snapshot, removed_id in diff_events(prev, cur):
                     if kind == "upsert" and snapshot is not None:
+                        emitted += 1
                         yield pb2.WindowEvent(type=pb2.WindowEvent.UPSERT, window=_window_info(snapshot))
                     elif kind == "remove" and removed_id is not None:
+                        emitted += 1
                         yield pb2.WindowEvent(type=pb2.WindowEvent.REMOVE, window_id=int(removed_id))
                 prev = cur
+                if tick == 1 or emitted > 0 or tick % 20 == 0:
+                    logger.info(
+                        "StreamWindows tick=%d windows=%d emitted=%d peer=%s",
+                        tick,
+                        len(cur),
+                        emitted,
+                        context.peer(),
+                    )
             except Exception:  # noqa: BLE001
                 traceback.print_exc()
                 logger.exception("StreamWindows loop error")
