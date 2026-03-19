@@ -1,0 +1,18 @@
+python - <<'PY'
+import ctypes, os
+from ctypes import wintypes
+u = ctypes.windll.user32
+k = ctypes.windll.kernel32
+WTSGetActiveConsoleSessionId = k.WTSGetActiveConsoleSessionId
+ProcessIdToSessionId = k.ProcessIdToSessionId
+sid = wintypes.DWORD()
+ProcessIdToSessionId(os.getpid(), ctypes.byref(sid))
+count = 0
+@ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+def cb(hwnd, lparam):
+    global count
+    count += 1
+    return True
+u.EnumWindows(cb, 0)
+print("pid_session=", sid.value, "active_console_session=", WTSGetActiveConsoleSessionId(), "enum_count=", count)
+PY
