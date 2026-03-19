@@ -6053,8 +6053,25 @@ typedef struct
 	void* args;
 } ChannelToLoad;
 
+static BOOL winp_minimal_channels_mode(void)
+{
+	const char* value = getenv("WINP_MIN_CHANNELS");
+
+	if (!value || (value[0] == '\0'))
+		return FALSE;
+
+	if ((_stricmp(value, "1") == 0) || (_stricmp(value, "true") == 0) ||
+	    (_stricmp(value, "yes") == 0) || (_stricmp(value, "on") == 0))
+	{
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
 BOOL freerdp_client_load_addins(rdpChannels* channels, rdpSettings* settings)
 {
+	const BOOL minimalChannels = winp_minimal_channels_mode();
 	ChannelToLoad dynChannels[] = {
 #if defined(CHANNEL_AINPUT_CLIENT)
 		{ FreeRDP_BOOL_UNUSED, AINPUT_CHANNEL_NAME, nullptr }, /* always loaded */
@@ -6114,6 +6131,9 @@ BOOL freerdp_client_load_addins(rdpChannels* channels, rdpSettings* settings)
 	 */
 	for (size_t i = 0; i < ARRAYSIZE(dynChannels); i++)
 	{
+		if (minimalChannels)
+			continue;
+
 		if ((dynChannels[i].settingId == FreeRDP_BOOL_UNUSED) ||
 		    freerdp_settings_get_bool(settings, dynChannels[i].settingId))
 		{
@@ -6254,7 +6274,7 @@ BOOL freerdp_client_load_addins(rdpChannels* channels, rdpSettings* settings)
 		}
 	}
 
-	if (freerdp_settings_get_bool(settings, FreeRDP_DeviceRedirection))
+	if (!minimalChannels && freerdp_settings_get_bool(settings, FreeRDP_DeviceRedirection))
 	{
 		if (!freerdp_client_load_static_channel_addin(channels, settings, RDPDR_SVC_CHANNEL_NAME,
 		                                              settings))
@@ -6330,6 +6350,12 @@ BOOL freerdp_client_load_addins(rdpChannels* channels, rdpSettings* settings)
 	/* step 3: schedule some static channels to load depending on the settings */
 	for (size_t i = 0; i < ARRAYSIZE(staticChannels); i++)
 	{
+		if ((strcmp(staticChannels[i].channelName, RDPSND_CHANNEL_NAME) == 0) &&
+		    freerdp_dynamic_channel_collection_find(settings, RDPSND_CHANNEL_NAME))
+		{
+			continue;
+		}
+
 		if ((staticChannels[i].settingId == 0) ||
 		    freerdp_settings_get_bool(settings, staticChannels[i].settingId))
 		{
@@ -6368,13 +6394,19 @@ BOOL freerdp_client_load_addins(rdpChannels* channels, rdpSettings* settings)
 			return FALSE;
 	}
 
-	if (freerdp_settings_get_uint32(settings, FreeRDP_DynamicChannelCount) > 0)
+	if (!minimalChannels &&
+	    (freerdp_settings_get_uint32(settings, FreeRDP_DynamicChannelCount) > 0))
 	{
 		if (!freerdp_settings_set_bool(settings, FreeRDP_SupportDynamicChannels, TRUE))
 			return FALSE;
 	}
 
-	if (freerdp_settings_get_bool(settings, FreeRDP_SupportDynamicChannels))
+	if (minimalChannels)
+	{
+		if (!freerdp_settings_set_bool(settings, FreeRDP_SupportDynamicChannels, FALSE))
+			return FALSE;
+	}
+	else if (freerdp_settings_get_bool(settings, FreeRDP_SupportDynamicChannels))
 	{
 		if (!freerdp_client_load_static_channel_addin(channels, settings, DRDYNVC_SVC_CHANNEL_NAME,
 		                                              settings))

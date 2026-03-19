@@ -156,6 +156,12 @@ static BOOL rdpsnd_mac_open(rdpsndDevicePlugin *device, const AUDIO_FORMAT *form
 		if (mac->isOpen)
 			return TRUE;
 
+		fprintf(stderr,
+		        "[WinP][rdpsnd-mac] open formatTag=%" PRIu16 " channels=%" PRIu16
+		        " rate=%" PRIu32 " bits=%" PRIu16 " latency=%" PRIu32 "\n",
+		        format->wFormatTag, format->nChannels, format->nSamplesPerSec,
+		        format->wBitsPerSample, latency);
+
 		if (!rdpsnd_mac_set_format(device, format, latency))
 			return FALSE;
 
@@ -165,6 +171,8 @@ static BOOL rdpsnd_mac_open(rdpsndDevicePlugin *device, const AUDIO_FORMAT *form
 		if (err)
 		{
 			WLog_ERR(TAG, "AudioHardwareGetProperty: %s", FormatError(err));
+			fprintf(stderr, "[WinP][rdpsnd-mac] AudioObjectGetPropertyData failed: %s\n",
+			        FormatError(err));
 			return FALSE;
 		}
 
@@ -179,6 +187,8 @@ static BOOL rdpsnd_mac_open(rdpsndDevicePlugin *device, const AUDIO_FORMAT *form
 		{
 			rdpsnd_mac_release(mac);
 			WLog_ERR(TAG, "AudioUnitSetProperty: %s", FormatError(err));
+			fprintf(stderr, "[WinP][rdpsnd-mac] AudioUnitSetProperty failed: %s\n",
+			        FormatError(err));
 			return FALSE;
 		}
 
@@ -201,10 +211,13 @@ static BOOL rdpsnd_mac_open(rdpsndDevicePlugin *device, const AUDIO_FORMAT *form
 			device->Close(device);
 			WLog_ERR(TAG, "Failed to start audio player %s",
 			         [error.localizedDescription UTF8String]);
+			fprintf(stderr, "[WinP][rdpsnd-mac] startAndReturnError: %s\n",
+			        [error.localizedDescription UTF8String]);
 			return FALSE;
 		}
 
 		mac->isOpen = TRUE;
+		fprintf(stderr, "[WinP][rdpsnd-mac] open success\n");
 		return TRUE;
 	}
 }
@@ -321,7 +334,10 @@ static UINT rdpsnd_mac_play(rdpsndDevicePlugin *device, const BYTE *data, size_t
 		UINT64 start = GetTickCount64();
 
 		if (!mac->isOpen)
+        {
+			fprintf(stderr, "[WinP][rdpsnd-mac] play skipped: device not open\n");
 			return 0;
+        }
 
 		step = 2 * mac->format.nChannels;
 
@@ -361,6 +377,7 @@ static UINT rdpsnd_mac_play(rdpsndDevicePlugin *device, const BYTE *data, size_t
 		}
 
 		rdpsnd_mac_start(device);
+		fprintf(stderr, "[WinP][rdpsnd-mac] play size=%zu frames=%u\n", size, count);
 
 		[mac->player scheduleBuffer:buffer
 		          completionHandler:^{

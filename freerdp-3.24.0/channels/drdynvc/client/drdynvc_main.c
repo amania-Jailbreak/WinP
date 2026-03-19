@@ -378,6 +378,10 @@ static UINT dvcman_load_addin(drdynvcPlugin* drdynvc, IWTSVirtualChannelManager*
 	WINPR_ASSERT(args);
 	WINPR_ASSERT(context);
 
+	fprintf(stderr, "[WinP][drdynvc] load_addin name=%s argc=%d\n",
+	        args->argv[0] ? args->argv[0] : "(null)", args->argc);
+	for (int i = 0; i < args->argc; i++)
+		fprintf(stderr, "[WinP][drdynvc] argv[%d]=%s\n", i, args->argv[i]);
 	WLog_Print(drdynvc->log, WLOG_INFO, "Loading Dynamic Virtual Channel %s", args->argv[0]);
 
 	PVIRTUALCHANNELENTRY pvce = freerdp_load_channel_addin_entry(args->argv[0], nullptr, nullptr,
@@ -1803,6 +1807,7 @@ static UINT drdynvc_virtual_channel_event_connected(drdynvcPlugin* drdynvc, LPVO
 
 	if (!drdynvc)
 		return CHANNEL_RC_BAD_CHANNEL_HANDLE;
+	fprintf(stderr, "[WinP][drdynvc] static channel connected event\n");
 
 	WINPR_ASSERT(drdynvc->channelEntryPoints.pVirtualChannelOpenEx);
 	status = drdynvc->channelEntryPoints.pVirtualChannelOpenEx(
@@ -2035,9 +2040,11 @@ static VOID VCAPITYPE drdynvc_virtual_channel_init_event_ex(LPVOID lpUserParam, 
 	switch (event)
 	{
 		case CHANNEL_EVENT_INITIALIZED:
+			fprintf(stderr, "[WinP][drdynvc] init event: initialized\n");
 			error = drdynvc_virtual_channel_event_initialized(drdynvc, pData, dataLength);
 			break;
 		case CHANNEL_EVENT_CONNECTED:
+			fprintf(stderr, "[WinP][drdynvc] init event: connected\n");
 			if ((error = drdynvc_virtual_channel_event_connected(drdynvc, pData, dataLength)))
 				WLog_Print(drdynvc->log, WLOG_ERROR,
 				           "drdynvc_virtual_channel_event_connected failed with error %" PRIu32 "",
@@ -2046,6 +2053,7 @@ static VOID VCAPITYPE drdynvc_virtual_channel_init_event_ex(LPVOID lpUserParam, 
 			break;
 
 		case CHANNEL_EVENT_DISCONNECTED:
+			fprintf(stderr, "[WinP][drdynvc] init event: disconnected\n");
 			if ((error = drdynvc_virtual_channel_event_disconnected(drdynvc)))
 				WLog_Print(drdynvc->log, WLOG_ERROR,
 				           "drdynvc_virtual_channel_event_disconnected failed with error %" PRIu32
@@ -2055,6 +2063,7 @@ static VOID VCAPITYPE drdynvc_virtual_channel_init_event_ex(LPVOID lpUserParam, 
 			break;
 
 		case CHANNEL_EVENT_TERMINATED:
+			fprintf(stderr, "[WinP][drdynvc] init event: terminated\n");
 			if ((error = drdynvc_virtual_channel_event_terminated(drdynvc)))
 				WLog_Print(drdynvc->log, WLOG_ERROR,
 				           "drdynvc_virtual_channel_event_terminated failed with error %" PRIu32 "",
@@ -2063,6 +2072,7 @@ static VOID VCAPITYPE drdynvc_virtual_channel_init_event_ex(LPVOID lpUserParam, 
 			break;
 
 		case CHANNEL_EVENT_ATTACHED:
+			fprintf(stderr, "[WinP][drdynvc] init event: attached\n");
 			if ((error = drdynvc_virtual_channel_event_attached(drdynvc)))
 				WLog_Print(drdynvc->log, WLOG_ERROR,
 				           "drdynvc_virtual_channel_event_attached failed with error %" PRIu32 "",
@@ -2071,6 +2081,7 @@ static VOID VCAPITYPE drdynvc_virtual_channel_init_event_ex(LPVOID lpUserParam, 
 			break;
 
 		case CHANNEL_EVENT_DETACHED:
+			fprintf(stderr, "[WinP][drdynvc] init event: detached\n");
 			if ((error = drdynvc_virtual_channel_event_detached(drdynvc)))
 				WLog_Print(drdynvc->log, WLOG_ERROR,
 				           "drdynvc_virtual_channel_event_detached failed with error %" PRIu32 "",
@@ -2112,9 +2123,11 @@ FREERDP_ENTRY_POINT(BOOL VCAPITYPE VirtualChannelEntryEx(PCHANNEL_ENTRY_POINTS_E
 	drdynvc = (drdynvcPlugin*)calloc(1, sizeof(drdynvcPlugin));
 
 	WINPR_ASSERT(pEntryPoints);
+	fprintf(stderr, "[WinP][drdynvc] entry begin\n");
 	if (!drdynvc)
 	{
 		WLog_ERR(TAG, "calloc failed!");
+		fprintf(stderr, "[WinP][drdynvc] entry calloc failed\n");
 		return FALSE;
 	}
 
@@ -2159,16 +2172,19 @@ FREERDP_ENTRY_POINT(BOOL VCAPITYPE VirtualChannelEntryEx(PCHANNEL_ENTRY_POINTS_E
 	rc = drdynvc->channelEntryPoints.pVirtualChannelInitEx(
 	    drdynvc, context, pInitHandle, &drdynvc->channelDef, 1, VIRTUAL_CHANNEL_VERSION_WIN2000,
 	    drdynvc_virtual_channel_init_event_ex);
+	fprintf(stderr, "[WinP][drdynvc] pVirtualChannelInitEx rc=%" PRIu32 "\n", rc);
 
 	if (CHANNEL_RC_OK != rc)
 	{
 		WLog_Print(drdynvc->log, WLOG_ERROR, "pVirtualChannelInit failed with %s [%08" PRIX32 "]",
 		           WTSErrorToString(rc), rc);
+		fprintf(stderr, "[WinP][drdynvc] pVirtualChannelInitEx failed rc=%" PRIu32 "\n", rc);
 		free(drdynvc->context);
 		free(drdynvc);
 		return FALSE;
 	}
 
 	drdynvc->channelEntryPoints.pInterface = context;
+	fprintf(stderr, "[WinP][drdynvc] entry success\n");
 	return TRUE;
 }

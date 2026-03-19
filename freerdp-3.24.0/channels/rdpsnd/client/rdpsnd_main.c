@@ -860,6 +860,8 @@ static UINT rdpsnd_load_device_plugin(rdpsndPlugin* rdpsnd, const char* name,
 	PVIRTUALCHANNELENTRY pvce =
 	    freerdp_load_channel_addin_entry(RDPSND_CHANNEL_NAME, name, nullptr, flags);
 	PFREERDP_RDPSND_DEVICE_ENTRY entry = WINPR_FUNC_PTR_CAST(pvce, PFREERDP_RDPSND_DEVICE_ENTRY);
+	fprintf(stderr, "[WinP][rdpsnd] load_device_plugin name=%s argc=%d\n",
+	        name ? name : "(null)", args ? args->argc : 0);
 
 	if (!entry)
 		return ERROR_INTERNAL_ERROR;
@@ -917,6 +919,12 @@ static UINT rdpsnd_process_addin_args(rdpsndPlugin* rdpsnd, const ADDIN_ARGV* ar
 		{ nullptr, 0, nullptr, nullptr, nullptr, -1, nullptr, nullptr }
 	};
 	rdpsnd->wQualityMode = HIGH_QUALITY; /* default quality mode */
+	fprintf(stderr, "[WinP][rdpsnd] process_addin_args argc=%d\n", args ? args->argc : 0);
+	if (args)
+	{
+		for (int i = 0; i < args->argc; i++)
+			fprintf(stderr, "[WinP][rdpsnd] argv[%d]=%s\n", i, args->argv[i]);
+	}
 
 	if (args->argc > 1)
 	{
@@ -937,6 +945,7 @@ static UINT rdpsnd_process_addin_args(rdpsndPlugin* rdpsnd, const ADDIN_ARGV* ar
 
 			CommandLineSwitchStart(arg) CommandLineSwitchCase(arg, "sys")
 			{
+				fprintf(stderr, "[WinP][rdpsnd] parsed sys=%s\n", arg->Value);
 				if (!rdpsnd_set_subsystem(rdpsnd, arg->Value))
 					return CHANNEL_RC_NO_MEMORY;
 			}
@@ -1057,6 +1066,8 @@ static UINT rdpsnd_process_connect(rdpsndPlugin* rdpsnd)
 	WINPR_ASSERT(rdpsnd);
 	rdpsnd->latency = 0;
 	args = (const ADDIN_ARGV*)rdpsnd->channelEntryPoints.pExtendedData;
+	fprintf(stderr, "[WinP][rdpsnd] process_connect dynamic=%d args=%p\n", rdpsnd->dynamic,
+	        (const void*)args);
 
 	if (args)
 	{
@@ -1068,6 +1079,7 @@ static UINT rdpsnd_process_connect(rdpsndPlugin* rdpsnd)
 
 	if (rdpsnd->subsystem)
 	{
+		fprintf(stderr, "[WinP][rdpsnd] using requested subsystem=%s\n", rdpsnd->subsystem);
 		if ((status = rdpsnd_load_device_plugin(rdpsnd, rdpsnd->subsystem, args)))
 		{
 			WLog_ERR(TAG,
@@ -1082,6 +1094,9 @@ static UINT rdpsnd_process_connect(rdpsndPlugin* rdpsnd)
 		{
 			const char* subsystem_name = backends[x].subsystem;
 			const char* device_name = backends[x].device;
+			fprintf(stderr, "[WinP][rdpsnd] trying backend subsystem=%s device=%s\n",
+			        subsystem_name ? subsystem_name : "(null)",
+			        device_name ? device_name : "(null)");
 
 			if ((status = rdpsnd_load_device_plugin(rdpsnd, subsystem_name, args)))
 				WLog_ERR(TAG,
@@ -1263,6 +1278,7 @@ static UINT rdpsnd_virtual_channel_event_connected(rdpsndPlugin* rdpsnd, LPVOID 
 
 	WINPR_ASSERT(rdpsnd);
 	WINPR_ASSERT(!rdpsnd->dynamic);
+	fprintf(stderr, "[WinP][rdpsnd] static channel connected event\n");
 
 	status = rdpsnd->channelEntryPoints.pVirtualChannelOpenEx(
 	    rdpsnd->InitHandle, &opened, rdpsnd->channelDef.name, rdpsnd_virtual_channel_open_event_ex);
@@ -1521,27 +1537,33 @@ static VOID VCAPITYPE rdpsnd_virtual_channel_init_event_ex(LPVOID lpUserParam, L
 	switch (event)
 	{
 		case CHANNEL_EVENT_INITIALIZED:
+			fprintf(stderr, "[WinP][rdpsnd] init event: initialized\n");
 			error = rdpsnd_virtual_channel_event_initialized(plugin);
 			break;
 
 		case CHANNEL_EVENT_CONNECTED:
+			fprintf(stderr, "[WinP][rdpsnd] init event: connected\n");
 			error = rdpsnd_virtual_channel_event_connected(plugin, pData, dataLength);
 			break;
 
 		case CHANNEL_EVENT_DISCONNECTED:
+			fprintf(stderr, "[WinP][rdpsnd] init event: disconnected\n");
 			error = rdpsnd_virtual_channel_event_disconnected(plugin);
 			break;
 
 		case CHANNEL_EVENT_TERMINATED:
+			fprintf(stderr, "[WinP][rdpsnd] init event: terminated\n");
 			rdpsnd_virtual_channel_event_terminated(plugin);
 			plugin = nullptr;
 			break;
 
 		case CHANNEL_EVENT_ATTACHED:
+			fprintf(stderr, "[WinP][rdpsnd] init event: attached\n");
 			plugin->attached = TRUE;
 			break;
 
 		case CHANNEL_EVENT_DETACHED:
+			fprintf(stderr, "[WinP][rdpsnd] init event: detached\n");
 			plugin->attached = FALSE;
 			break;
 
@@ -1647,6 +1669,7 @@ static UINT rdpsnd_on_open(IWTSVirtualChannelCallback* pChannelCallback)
 
 	rdpsnd = (rdpsndPlugin*)callback->plugin;
 	WINPR_ASSERT(rdpsnd);
+	fprintf(stderr, "[WinP][rdpsnd] dynamic channel on_open\n");
 
 	if (rdpsnd->OnOpenCalled)
 		return CHANNEL_RC_OK;
