@@ -16,10 +16,7 @@ struct WinPApp: App {
             ContentView()
                 .environmentObject(client)
         }
-
-        Window("Remote Screen", id: "remote-screen") {
-            RemoteScreenView()
-                .environmentObject(client)
-        }
+        .defaultSize(width: 760, height: 820)
+        .windowResizability(.contentSize)
     }
 }

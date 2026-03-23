@@ -1,1 +1,0 @@
-# WinP Windows agent package.
