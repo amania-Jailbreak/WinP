@@ -333,7 +333,8 @@ struct ContentView: View {
                                         domain: shortcut.domain,
                                         exePath: shortcut.exePath,
                                         titleHint: shortcut.windowTitleHint,
-                                        icon: shortcut.icon
+                                        icon: shortcut.icon,
+                                        staysOpen: false
                                     )
                                 )
                             } label: {
@@ -375,7 +376,8 @@ struct ContentView: View {
                                         domain: shortcut.domain,
                                         exePath: shortcut.exePath,
                                         titleHint: shortcut.windowTitleHint,
-                                        icon: shortcut.icon
+                                        icon: shortcut.icon,
+                                        staysOpen: false
                                     )
                                 )
                             }

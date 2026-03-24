@@ -18,6 +18,7 @@ struct RemoteAppShortcutExport {
     let exePath: String
     let titleHint: String?
     let icon: NSImage?
+    let staysOpen: Bool
 }
 
 struct TaskbarWindow: Identifiable, Equatable {
@@ -231,7 +232,8 @@ final class RDPClientService: ObservableObject {
             exePath: trimmedExe,
             titleHint: shortcut.titleHint,
             rdpContents: rdpContents,
-            slug: sanitizedScriptSlug(from: shortcut.name)
+            slug: sanitizedScriptSlug(from: shortcut.name),
+            staysOpen: shortcut.staysOpen
         )
 
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -245,14 +247,15 @@ final class RDPClientService: ObservableObject {
         }
         try script.write(to: scriptSourceURL, atomically: true, encoding: .utf8)
 
+        var osacompileArguments = ["-l", "JavaScript"]
+        if shortcut.staysOpen {
+            osacompileArguments.append("-s")
+        }
+        osacompileArguments.append(contentsOf: ["-o", bundleURL.path, scriptSourceURL.path])
+
         let output = try runProcess(
             launchPath: "/usr/bin/osacompile",
-            arguments: [
-                "-l", "JavaScript",
-                "-s",
-                "-o", bundleURL.path,
-                scriptSourceURL.path
-            ]
+            arguments: osacompileArguments
         )
 
         if let icon = shortcut.icon {
@@ -341,7 +344,8 @@ final class RDPClientService: ObservableObject {
         exePath: String,
         titleHint: String?,
         rdpContents: [String],
-        slug: String
+        slug: String,
+        staysOpen: Bool
     ) -> String {
         let payload = rdpContents.joined(separator: "\r\n")
         let titleLiteral = titleHint.map(javaScriptStringLiteral) ?? "null"
@@ -356,7 +360,8 @@ final class RDPClientService: ObservableObject {
             exePath: \(javaScriptStringLiteral(exePath)),
             titleHint: \(titleLiteral),
             rdpContents: \(javaScriptStringLiteral(payload)),
-            slug: \(javaScriptStringLiteral(slug))
+            slug: \(javaScriptStringLiteral(slug)),
+            staysOpen: \(staysOpen ? "true" : "false")
         };
         var apiBase = "http://" + config.host + ":8000";
         var lastLaunchAt = 0;
@@ -449,6 +454,16 @@ final class RDPClientService: ObservableObject {
             app.doShellScript(command);
         }
 
+        function requestRemoteExit() {
+            var payload = JSON.stringify({ delay_ms: 300 });
+            var command = "/usr/bin/curl -sf --max-time 2 -X POST -H 'Content-Type: application/json' -d "
+                + shellQuote(payload) + " " + shellQuote(apiBase + "/exit");
+            try {
+                app.doShellScript(command);
+            } catch (error) {
+            }
+        }
+
         function launchRemoteApp() {
             var tmpRoot = "/private/tmp/WinP";
             app.doShellScript("/bin/mkdir -p " + shellQuote(tmpRoot));
@@ -475,6 +490,9 @@ final class RDPClientService: ObservableObject {
 
         function run() {
             ensureWindow(false);
+            if (!config.staysOpen) {
+                $.NSApplication.sharedApplication.terminate(null);
+            }
         }
 
         function reopen() {
@@ -496,6 +514,12 @@ final class RDPClientService: ObservableObject {
             }
             $.NSApplication.sharedApplication.terminate(null);
             return 0;
+        }
+
+        function quit() {
+            if (config.staysOpen) {
+                requestRemoteExit();
+            }
         }
         """
     }
@@ -587,7 +611,8 @@ final class RDPClientService: ObservableObject {
                 domain: autoSyncDomain,
                 exePath: window.exePath ?? "",
                 titleHint: window.title,
-                icon: window.icon
+                icon: window.icon,
+                staysOpen: true
             )
 
             do {
@@ -645,7 +670,7 @@ final class RDPClientService: ObservableObject {
         }
 
         for app in runningApps {
-            _ = app.terminate()
+            _ = app.forceTerminate()
         }
 
         if !runningApps.isEmpty {
